@@ -8,6 +8,7 @@ module Roast
       SUPPORTED_PROVIDERS = {
         "openai" => :openai,
         "openrouter" => :openrouter,
+        "bedrock" => :bedrock,
       }.freeze
 
       DEFAULT_PROVIDER = :openai
@@ -42,6 +43,13 @@ module Roast
         # @return [Boolean]
         def openai?(provider)
           provider == :openai
+        end
+
+        # Returns true if the provider is Bedrock
+        # @param provider [Symbol] The provider symbol
+        # @return [Boolean]
+        def bedrock?(provider)
+          provider == :bedrock
         end
 
         # Returns the list of supported provider names

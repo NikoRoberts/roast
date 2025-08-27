@@ -59,6 +59,8 @@ module Roast
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix OpenAI client is not configured!}}")
           when :openrouter
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix OpenRouter client is not configured!}}")
+          when :bedrock
+            # No special warning for Bedrock as it uses the default AWS credentials chain
           else
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix is not configured!}}")
           end

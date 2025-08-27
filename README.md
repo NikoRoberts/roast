@@ -2,6 +2,34 @@
 
 # Roast
 
+### Amazon Bedrock (Beta)
+
+```yaml
+# roast.yml
+api_provider: bedrock
+model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-5-sonnet-20240620-v1:0}
+```
+
+#### GitHub Actions
+
+```yaml
+- uses: aws-actions/configure-aws-credentials@v4
+  with:
+    role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/<GITHUB_OIDC_ROLE>
+    aws-region: us-east-1
+
+- run: |
+    export ROAST_API_PROVIDER=bedrock
+    export BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
+    roast run
+```
+
+#### Notes
+
+Ensure your AWS account has Bedrock access to the chosen model in the region.
+
+For large diffs, set max_tokens accordingly or let Roast handle truncation.
+
 A convention-oriented framework for creating structured AI workflows, maintained by the Augmented Engineering team at Shopify.
 
 ## Installation
@@ -280,92 +308,92 @@ Roast supports several types of steps:
    Agent steps are prefixed with `^` and send the prompt content directly to the CodingAgent tool without LLM translation. This is useful when you want to give precise instructions to a coding agent without the intermediate interpretation layer. Agent steps support both file-based prompts (`fix_linting_errors/prompt.md`) and inline prompts (text with spaces).
 
    **Session continuity for agent steps:**
-   
+
    Agent steps support two options for maintaining Claude context across steps:
-   
-   1. **`continue: true`** - Continues from the immediately previous Claude Code session (note, if multiple Claude Code sessions are being run in parallel in the same working directory, this might not be the previous Claude Code session from this workflow) 
+
+   1. **`continue: true`** - Continues from the immediately previous Claude Code session (note, if multiple Claude Code sessions are being run in parallel in the same working directory, this might not be the previous Claude Code session from this workflow)
    2. **`resume: step_name`** - Resumes from a specific earlier step's Claude Code session
-   
+
    **Continue option:**
-   
+
    The `continue` option allows sequential agent steps to maintain a continuous conversation:
-   
+
    ```yaml
    steps:
      - ^analyze_codebase
      - ^implement_feature
      - ^add_tests
-   
+
    # Configuration
    analyze_codebase:
      continue: false  # Start fresh (default)
-   
+
    implement_feature:
      continue: true   # Continue from immediately previous analyze_codebase step
-   
+
    add_tests:
      continue: true   # Continue from immediately previous implement_feature step
    ```
-   
+
    **Resume functionality for agent steps:**
-   
+
    Agent steps can resume from specific previous Claude Code sessions:
-   
+
    ```yaml
    steps:
      - ^analyze_codebase
      - ^implement_feature
      - ^polish_implementation
-   
+
    # Configuration
    analyze_codebase:
      continue: false  # Start fresh
-   
+
    implement_feature:
      continue: true   # Continue from previous conversation
-   
+
    polish_implementation:
      resume: analyze_codebase  # Resume from a specific step's session not the immediately previous one
    ```
-   
+
    Note: Session IDs are only available when the CodingAgent is configured to output JSON format (includes `--output-format stream-json` in the command). If you are using a custom CodingAgent command that does not produce JSON output, resume functionality will not be available.
 
-   If `resume` is specified but the step name given does not have CodingAgent session to resume from, the CodingAgent will start Claude Code with a fresh session. 
+   If `resume` is specified but the step name given does not have CodingAgent session to resume from, the CodingAgent will start Claude Code with a fresh session.
 
 9. **Shell script step**: Execute shell scripts directly as workflow steps
    ```yaml
    steps:
      - setup_environment     # Executes setup_environment.sh
-     - run_tests             # Executes run_tests.sh  
+     - run_tests             # Executes run_tests.sh
      - cleanup
    ```
-   
+
    Shell script steps allow you to execute `.sh` files directly as workflow steps alongside Ruby steps and AI prompts. Scripts are automatically discovered in the same locations as other step types.
-   
+
    **Configuration options:**
    ```yaml
-   # Step configuration  
+   # Step configuration
    my_script:
      json: true              # Parse stdout as JSON
      exit_on_error: false    # Don't fail workflow on non-zero exit
      env:                    # Custom environment variables
        CUSTOM_VAR: "value"
    ```
-   
+
    **Environment integration:** Shell scripts automatically receive workflow context:
    - `ROAST_WORKFLOW_RESOURCE`: Current workflow resource
    - `ROAST_STEP_NAME`: Current step name
    - `ROAST_WORKFLOW_OUTPUT`: Previous step outputs as JSON
-   
+
    **Example script (`setup_environment.sh`):**
    ```bash
    #!/bin/bash
    echo "Setting up environment for: $ROAST_WORKFLOW_RESOURCE"
-   
+
    # Create a config file that subsequent steps can use
    mkdir -p tmp
    echo "DATABASE_URL=sqlite://test.db" > tmp/config.env
-   
+
    # Output data for the workflow (available via ROAST_WORKFLOW_OUTPUT in later steps)
    echo '{"status": "configured", "database": "sqlite://test.db", "config_file": "tmp/config.env"}'
    ```
@@ -391,13 +419,13 @@ Roast supports several types of steps:
           prompt: "Enter API key"
           type: password
     ```
-    
+
     Input steps pause workflow execution to collect user input. They support several types:
     - `text`: Free-form text input (default if type not specified)
     - `confirm`: Yes/No confirmation prompts
     - `select`: Choice from a list of options
     - `password`: Masked input for sensitive data
-    
+
     The user's input is stored in the workflow output using the step name as the key and can be accessed in subsequent steps via interpolation (e.g., `{{output.get_user_feedback}}`).
 
 #### Step Configuration
@@ -808,23 +836,23 @@ Metadata can be set by custom Ruby steps that extend `BaseStep`:
 # workflow/analyze_codebase.rb
 class AnalyzeCodebase < Roast::Workflow::BaseStep
    include Roast::Helpers::MetadataAccess
-   
+
   def call
     # Perform analysis
     analysis_results = perform_deep_analysis
-    
+
     # Store metadata for other steps to use
     workflow.metadata[name.to_s] ||= {}
     workflow.metadata[name.to_s]["total_files"] = analysis_results[:file_count]
     workflow.metadata[name.to_s]["complexity_score"] = analysis_results[:complexity]
     workflow.metadata[name.to_s]["analysis_id"] = SecureRandom.uuid
-    
+
     # Return the normal output for the conversation
     "Analyzed #{analysis_results[:file_count]} files with average complexity of #{analysis_results[:complexity]}"
   end
-  
+
   private
-  
+
   def perform_deep_analysis
     # Your analysis logic here
     { file_count: 42, complexity: 7.5 }
@@ -843,7 +871,7 @@ class GenerateReport < Roast::Workflow::BaseStep
     # Access metadata from a previous step
     total_files = workflow.metadata.dig("analyze_codebase", "total_files")
     complexity = workflow.metadata.dig("analyze_codebase", "complexity_score")
-    
+
     "Generated report for #{total_files} files with complexity score: #{complexity}"
   end
 end
@@ -881,7 +909,7 @@ Analysis ID: <%= workflow.metadata.dig(name.to_s, "analysis_id") %>
 
 #### Metadata Best Practices
 
-- **Use metadata for data that shouldn't be in the conversation** 
+- **Use metadata for data that shouldn't be in the conversation**
 - **Don't duplicate output data:** Metadata complements the output hash, it doesn't replace it
 
 The metadata system is particularly useful for:

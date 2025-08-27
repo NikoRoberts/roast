@@ -24,6 +24,11 @@ module Roast
         Roast::Factories::ApiProviderFactory.openai?(@api_provider)
       end
 
+      # @return [Boolean] true if using Bedrock
+      def bedrock?
+        Roast::Factories::ApiProviderFactory.bedrock?(@api_provider)
+      end
+
       # Get the effective API token including environment variables
       # @return [String, nil] The API token
       def effective_token
@@ -59,6 +64,11 @@ module Roast
           ENV["OPENAI_API_KEY"]
         elsif openrouter?
           ENV["OPENROUTER_API_KEY"]
+        elsif bedrock?
+          # Bedrock uses the default AWS credentials chain
+          # so we don't need to check for a specific token.
+          # We can return a placeholder value to satisfy the check.
+          "AWS_CREDENTIALS"
         end
       end
     end
