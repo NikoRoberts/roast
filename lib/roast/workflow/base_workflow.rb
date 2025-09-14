@@ -172,6 +172,8 @@ module Roast
 
         $stderr.puts "🚀 Direct RubyLLM completion - Model: #{model_name}"
         $stderr.puts "🚀 Messages count: #{messages.length}"
+        $stderr.puts "🔧 Raw messages array: #{messages.inspect[0...500]}..."
+        $stderr.puts "🔧 Transcript content: #{transcript.inspect[0...300]}..."
 
         # Ensure RubyLLM has the right configuration before creating chat instance
         configure_ruby_llm_for_model(model_name)
@@ -185,16 +187,28 @@ module Roast
 
         # Extract the content from the last user message
         last_message = messages.last
+        $stderr.puts "🔧 Last message type: #{last_message.class}"
+        $stderr.puts "🔧 Last message content: #{last_message.inspect[0...200]}..."
+
         content = case last_message
         when Hash
-          last_message[:content] || last_message["content"]
+          extracted = last_message[:content] || last_message["content"]
+          $stderr.puts "🔧 Extracted from hash: #{extracted&.class}"
+          extracted
         when String
+          $stderr.puts "🔧 Using string directly"
           last_message
         else
+          $stderr.puts "🔧 Converting to string: #{last_message.class}"
           last_message.to_s
         end
 
-        $stderr.puts "🚀 Making RubyLLM request with content: #{content[0...100]}..."
+        if content.nil? || content.empty?
+          $stderr.puts "❌ No content extracted from message!"
+          $stderr.puts "❌ Messages array: #{messages.inspect}"
+        end
+
+        $stderr.puts "🚀 Making RubyLLM request with content: #{content&.[](0...100)}..."
         response_text = chat.ask(content)
         $stderr.puts "✅ RubyLLM request completed successfully"
 
@@ -202,6 +216,9 @@ module Roast
         response_text
       rescue => e
         $stderr.puts "❌ RubyLLM error: #{e.message}"
+        $stderr.puts "❌ RubyLLM error class: #{e.class}"
+        $stderr.puts "❌ RubyLLM backtrace:"
+        e.backtrace&.first(10)&.each { |line| $stderr.puts "  #{line}" }
         raise e
       end
 
