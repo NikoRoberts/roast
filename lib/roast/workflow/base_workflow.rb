@@ -173,6 +173,9 @@ module Roast
         $stderr.puts "🚀 Direct RubyLLM completion - Model: #{model_name}"
         $stderr.puts "🚀 Messages count: #{messages.length}"
 
+        # Ensure RubyLLM has the right configuration before creating chat instance
+        configure_ruby_llm_for_model(model_name)
+
         # Create RubyLLM chat instance with model
         chat = if model_name
           RubyLLM.chat(model: model_name)
@@ -200,6 +203,72 @@ module Roast
       rescue => e
         $stderr.puts "❌ RubyLLM error: #{e.message}"
         raise e
+      end
+
+      # Configure RubyLLM for the specific model at runtime
+      def configure_ruby_llm_for_model(model_name)
+        return unless model_name
+
+        # Get API token from workflow configuration
+        api_token = workflow_configuration&.api_token
+        return unless api_token
+
+        $stderr.puts "🔧 Configuring RubyLLM for model: #{model_name}"
+
+        # Configure RubyLLM with the right API key based on model
+        RubyLLM.configure do |config|
+          if model_name.include?("gemini")
+            config.google_cloud_project = ENV['GOOGLE_CLOUD_PROJECT'] if ENV['GOOGLE_CLOUD_PROJECT']
+            config.google_cloud_location = ENV['GOOGLE_CLOUD_LOCATION'] || 'us-central1'
+            # For Gemini, try both possible configuration methods
+            if config.respond_to?(:gemini_api_key=)
+              config.gemini_api_key = api_token.strip
+              $stderr.puts "🔧 Set gemini_api_key via config"
+            end
+            if config.respond_to?(:google_api_key=)
+              config.google_api_key = api_token.strip
+              $stderr.puts "🔧 Set google_api_key via config"
+            end
+            # Also set environment variable as backup
+            ENV['GEMINI_API_KEY'] = api_token.strip
+            $stderr.puts "🔧 Set GEMINI_API_KEY environment variable"
+          elsif model_name.include?("claude") && !model_name.include?("anthropic.")
+            if config.respond_to?(:anthropic_api_key=)
+              config.anthropic_api_key = api_token.strip
+              $stderr.puts "🔧 Set anthropic_api_key via config"
+            end
+            ENV['ANTHROPIC_API_KEY'] = api_token.strip
+          elsif model_name.start_with?("anthropic.", "amazon.", "ai21.", "cohere.", "meta.", "mistral.")
+            # Bedrock models - configure AWS
+            configure_aws_for_bedrock(api_token)
+          else
+            # Default to OpenAI
+            if config.respond_to?(:openai_api_key=)
+              config.openai_api_key = api_token.strip
+              $stderr.puts "🔧 Set openai_api_key via config"
+            end
+            ENV['OPENAI_API_KEY'] = api_token.strip
+          end
+        end
+      end
+
+      # Configure AWS credentials for Bedrock at runtime
+      def configure_aws_for_bedrock(config_value)
+        $stderr.puts "🔧 Configuring AWS for Bedrock"
+
+        begin
+          if config_value.start_with?("{")
+            aws_config = JSON.parse(config_value)
+            ENV['AWS_REGION'] = aws_config['region'] if aws_config['region']
+            ENV['AWS_ACCESS_KEY_ID'] = aws_config['access_key'] if aws_config['access_key']
+            ENV['AWS_SECRET_ACCESS_KEY'] = aws_config['secret_key'] if aws_config['secret_key']
+          else
+            ENV['AWS_REGION'] = config_value
+          end
+          $stderr.puts "🔧 AWS configuration set for Bedrock"
+        rescue JSON::ParserError
+          ENV['AWS_REGION'] = config_value
+        end
       end
     end
   end
