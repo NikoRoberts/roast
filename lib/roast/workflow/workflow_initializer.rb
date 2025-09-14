@@ -306,10 +306,21 @@ module Roast
         # Configure RubyLLM based on the provider or API key available
         RubyLLM.configure do |config|
           if @configuration.api_token
-            # Try to determine which provider based on common key patterns
-            # or use the first available API key
-            config.openai_api_key = @configuration.api_token.strip if @configuration.api_token
-            $stderr.puts "🔧 Configured RubyLLM with API token"
+            # Determine which API key to set based on the model being used
+            model = @configuration.model
+            api_token = @configuration.api_token.strip
+
+            if model&.include?("gemini")
+              config.google_api_key = api_token
+              $stderr.puts "🔧 Configured RubyLLM with Google API token for Gemini model"
+            elsif model&.include?("claude")
+              config.anthropic_api_key = api_token
+              $stderr.puts "🔧 Configured RubyLLM with Anthropic API token for Claude model"
+            else
+              # Default to OpenAI for other models
+              config.openai_api_key = api_token
+              $stderr.puts "🔧 Configured RubyLLM with OpenAI API token"
+            end
           else
             $stderr.puts "⚠️  No API token found for RubyLLM configuration"
           end

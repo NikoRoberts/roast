@@ -173,9 +173,12 @@ module Roast
         $stderr.puts "🚀 Direct RubyLLM completion - Model: #{model_name}"
         $stderr.puts "🚀 Messages count: #{messages.length}"
 
-        # Create RubyLLM chat instance
-        chat = RubyLLM.chat
-        chat.model = model_name if model_name
+        # Create RubyLLM chat instance with model
+        chat = if model_name
+          RubyLLM.chat(model: model_name)
+        else
+          RubyLLM.chat
+        end
 
         # Extract the content from the last user message
         last_message = messages.last
