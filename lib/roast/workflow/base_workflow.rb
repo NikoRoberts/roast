@@ -215,18 +215,36 @@ module Roast
 
         $stderr.puts "🔧 Configuring RubyLLM for model: #{model_name}"
 
-        # Set environment variables - RubyLLM reads from ENV vars
+        # Try multiple configuration approaches for RubyLLM
         if model_name.include?("gemini")
+          # Set multiple possible environment variables
           ENV['GEMINI_API_KEY'] = api_token.strip
-          $stderr.puts "🔧 Set GEMINI_API_KEY environment variable for Gemini model"
+          ENV['GOOGLE_API_KEY'] = api_token.strip  # Alternative name
+          $stderr.puts "🔧 Set GEMINI_API_KEY and GOOGLE_API_KEY environment variables"
 
-          # Also set these if they exist in the environment
-          if ENV['GOOGLE_CLOUD_PROJECT']
-            $stderr.puts "🔧 Using existing GOOGLE_CLOUD_PROJECT: #{ENV['GOOGLE_CLOUD_PROJECT']}"
+          # Try RubyLLM configuration if methods exist
+          begin
+            RubyLLM.configure do |config|
+              # Try various possible configuration method names
+              config_methods = [
+                :gemini_api_key=,
+                :google_api_key=,
+                :google_gemini_api_key=,
+                :api_key=
+              ]
+
+              config_methods.each do |method|
+                if config.respond_to?(method)
+                  config.send(method, api_token.strip)
+                  $stderr.puts "🔧 Successfully set #{method.to_s.chomp('=')} via RubyLLM config"
+                end
+              end
+            end
+          rescue => e
+            $stderr.puts "🔧 RubyLLM config attempt failed: #{e.message}"
           end
-          if ENV['GOOGLE_CLOUD_LOCATION']
-            $stderr.puts "🔧 Using existing GOOGLE_CLOUD_LOCATION: #{ENV['GOOGLE_CLOUD_LOCATION']}"
-          end
+
+          $stderr.puts "🔧 Available ENV vars: GEMINI_API_KEY=#{ENV['GEMINI_API_KEY'] ? '[SET]' : '[UNSET]'}"
         elsif model_name.include?("claude") && !model_name.include?("anthropic.")
           ENV['ANTHROPIC_API_KEY'] = api_token.strip
           $stderr.puts "🔧 Set ANTHROPIC_API_KEY environment variable for Claude model"
