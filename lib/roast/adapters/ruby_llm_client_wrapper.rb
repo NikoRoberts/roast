@@ -22,6 +22,11 @@ module Roast
         ModelsList.new
       end
 
+      # Implement completions interface that Raix might use
+      def completions
+        CompletionsHandler.new(self)
+      end
+
       # Chat completion interface for Raix
       def chat(parameters:)
         $stderr.puts "🚀 RubyLlmClientWrapper.chat called with parameters: #{parameters.keys.join(', ')}"
@@ -106,6 +111,19 @@ module Roast
       class ModelsList
         def list
           []
+        end
+      end
+
+      # Handler for completions API that delegates back to chat
+      class CompletionsHandler
+        def initialize(client)
+          @client = client
+        end
+
+        def complete(parameters)
+          $stderr.puts "🚀 CompletionsHandler.complete called with: #{parameters.keys.join(', ')}"
+          # Delegate to the chat method with proper parameter mapping
+          @client.chat(parameters: parameters)
         end
       end
     end

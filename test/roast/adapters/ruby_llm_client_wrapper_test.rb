@@ -28,6 +28,12 @@ module Roast
         assert_respond_to(@client, :chat)
       end
 
+      def test_completions_method_exists
+        assert_respond_to(@client, :completions)
+        completions_handler = @client.completions
+        assert_respond_to(completions_handler, :complete)
+      end
+
       def test_convert_messages_handles_hash_messages
         messages = [
           { role: "user", content: "Hello" },
