@@ -315,6 +315,7 @@ module Roast
         # Create a client wrapper that works with Raix
         # Since Raix doesn't have native ruby_llm_client support,
         # we'll use the openai_client slot for our wrapper
+        require_relative "../adapters/ruby_llm_client_wrapper"
         client = Roast::Adapters::RubyLLMClientWrapper.new
         $stderr.puts "🔧 Created RubyLLMClientWrapper instance: #{client.class}"
 
