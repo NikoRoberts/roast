@@ -771,6 +771,27 @@ export PERPLEXITY_API_KEY=your_key   # For Perplexity models
 export RUBY_LLM_API_KEY=your_key     # Or use this as a fallback
 ```
 
+**Google Gemini Configuration:**
+
+RubyLLM supports both direct Gemini API and Vertex AI:
+
+```yaml
+# Option 1: Direct Gemini API (simpler)
+name: Gemini Workflow
+api_provider: ruby_llm
+model: gemini-1.5-flash
+api_token: your_gemini_api_key
+
+# Option 2: Vertex AI (requires Google Cloud project)
+name: Vertex AI Workflow
+api_provider: ruby_llm
+model: gemini-1.5-pro
+api_token: your_gemini_api_key
+# Also set these environment variables:
+# export GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+# export GOOGLE_CLOUD_LOCATION=us-central1
+```
+
 **AWS Bedrock Support:**
 
 For AWS Bedrock models, configure AWS credentials in the workflow:
