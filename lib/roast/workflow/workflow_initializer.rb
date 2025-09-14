@@ -250,8 +250,11 @@ module Roast
         case @configuration.api_provider
         when :openrouter
           Raix.configuration.openrouter_client.present?
-        when :openai, :ruby_llm
+        when :openai
           Raix.configuration.openai_client.present?
+        when :ruby_llm
+          # RubyLLM doesn't need Raix client configuration
+          false
         else
           false
         end
@@ -312,19 +315,11 @@ module Roast
           end
         end
 
-        # Create a client wrapper that works with Raix
-        # Since Raix doesn't have native ruby_llm_client support,
-        # we'll use the openai_client slot for our wrapper
-        client = Roast::Adapters::RubyLlmClientWrapper.new
-        $stderr.puts "🔧 Created RubyLlmClientWrapper instance: #{client.class}"
+        # For RubyLLM, we don't need to configure Raix since we handle it directly in BaseWorkflow
+        $stderr.puts "✅ RubyLLM configured for direct integration (bypassing Raix)"
 
-        Raix.configure do |config|
-          config.openai_client = client
-        end
-        $stderr.puts "✅ Configured Raix with RubyLLM wrapper as openai_client"
-        $stderr.puts "🔧 Current Raix openai_client: #{Raix.configuration.openai_client.class}"
-
-        client
+        # Return a simple marker object to indicate success
+        :ruby_llm_configured
       end
 
       def validate_api_client(client)

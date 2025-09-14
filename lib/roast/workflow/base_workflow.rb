@@ -80,9 +80,14 @@ module Roast
           # Clear any previous response
           Thread.current[:chat_completion_response] = nil
 
-          # Call the parent module's chat_completion
-          # skip model because it is read directly from the model method
-          result = super(**kwargs.except(:model))
+          # Handle RubyLLM provider directly, bypass Raix
+          result = if workflow_configuration&.ruby_llm?
+            handle_ruby_llm_completion(**kwargs)
+          else
+            # Call the parent module's chat_completion
+            # skip model because it is read directly from the model method
+            super(**kwargs.except(:model))
+          end
           execution_time = Time.now - start_time
 
           # Extract token usage from the raw response stored by Raix
@@ -156,6 +161,42 @@ module Roast
 
         result_hash = result.is_a?(Hash) ? result : result.to_h
         result_hash.dig("usage") || result_hash.dig(:usage)
+      end
+
+      # Handle RubyLLM completions directly without going through Raix
+      def handle_ruby_llm_completion(**kwargs)
+        require "ruby_llm"
+
+        messages = kwargs[:messages] || transcript.flatten.compact
+        model_name = kwargs[:model] || model
+
+        $stderr.puts "🚀 Direct RubyLLM completion - Model: #{model_name}"
+        $stderr.puts "🚀 Messages count: #{messages.length}"
+
+        # Create RubyLLM chat instance
+        chat = RubyLLM.chat
+        chat.model = model_name if model_name
+
+        # Extract the content from the last user message
+        last_message = messages.last
+        content = case last_message
+        when Hash
+          last_message[:content] || last_message["content"]
+        when String
+          last_message
+        else
+          last_message.to_s
+        end
+
+        $stderr.puts "🚀 Making RubyLLM request with content: #{content[0...100]}..."
+        response_text = chat.ask(content)
+        $stderr.puts "✅ RubyLLM request completed successfully"
+
+        # Return response in the format Roast expects
+        response_text
+      rescue => e
+        $stderr.puts "❌ RubyLLM error: #{e.message}"
+        raise e
       end
     end
   end
