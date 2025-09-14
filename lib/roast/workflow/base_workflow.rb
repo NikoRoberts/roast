@@ -192,7 +192,24 @@ module Roast
 
         content = case last_message
         when Hash
-          extracted = last_message[:content] || last_message["content"]
+          # Handle Roast's message format: {:user => StepName_object}
+          user_value = last_message[:user] || last_message["user"] ||
+                      last_message[:content] || last_message["content"]
+
+          extracted = case user_value
+          when String
+            user_value
+          else
+            # Handle StepName value objects and other objects with @value or .value
+            if user_value.respond_to?(:value)
+              user_value.value
+            elsif user_value.respond_to?(:to_s)
+              user_value.to_s
+            else
+              user_value
+            end
+          end
+
           $stderr.puts "🔧 Extracted from hash: #{extracted&.class}"
           extracted
         when String
@@ -206,6 +223,7 @@ module Roast
         if content.nil? || content.empty?
           $stderr.puts "❌ No content extracted from message!"
           $stderr.puts "❌ Messages array: #{messages.inspect}"
+          raise ArgumentError, "No content could be extracted from messages"
         end
 
         $stderr.puts "🚀 Making RubyLLM request with content: #{content&.[](0...100)}..."
