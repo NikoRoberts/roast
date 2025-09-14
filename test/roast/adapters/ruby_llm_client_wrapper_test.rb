@@ -1,13 +1,12 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../../lib/roast/adapters/ruby_llm_client_wrapper"
 
 module Roast
   module Adapters
-    class RubyLLMClientWrapperTest < ActiveSupport::TestCase
+    class RubyLlmClientWrapperTest < ActiveSupport::TestCase
       def setup
-        @client = RubyLLMClientWrapper.new
+        @client = RubyLlmClientWrapper.new
       end
 
       def test_initializes_with_nil_access_token
@@ -16,7 +15,7 @@ module Roast
 
       def test_provides_models_interface
         assert_respond_to(@client, :models)
-        assert_instance_of(RubyLLMClientWrapper::ModelsList, @client.models)
+        assert_instance_of(RubyLlmClientWrapper::ModelsList, @client.models)
       end
 
       def test_models_list_responds_to_list

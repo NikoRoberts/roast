@@ -10,7 +10,7 @@ end
 module Roast
   module Adapters
     # Wrapper class that adapts RubyLLM to work with Raix's client interface
-    class RubyLLMClientWrapper
+    class RubyLlmClientWrapper
       attr_reader :access_token
 
       def initialize
@@ -24,7 +24,7 @@ module Roast
 
       # Chat completion interface for Raix
       def chat(parameters:)
-        $stderr.puts "🚀 RubyLLMClientWrapper.chat called with parameters: #{parameters.keys.join(', ')}"
+        $stderr.puts "🚀 RubyLlmClientWrapper.chat called with parameters: #{parameters.keys.join(', ')}"
         $stderr.puts "🚀 Model requested: #{parameters[:model]}"
         $stderr.puts "🚀 Messages count: #{(parameters[:messages] || []).length}"
 
