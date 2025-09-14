@@ -24,6 +24,10 @@ module Roast
 
       # Chat completion interface for Raix
       def chat(parameters:)
+        $stderr.puts "🚀 RubyLLMClientWrapper.chat called with parameters: #{parameters.keys.join(', ')}"
+        $stderr.puts "🚀 Model requested: #{parameters[:model]}"
+        $stderr.puts "🚀 Messages count: #{(parameters[:messages] || []).length}"
+
         unless defined?(RubyLLM)
           raise NameError, "RubyLLM constant is not defined. Make sure the ruby_llm gem is installed and required."
         end
@@ -37,15 +41,23 @@ module Roast
 
         # Create RubyLLM chat instance
         chat = RubyLLM.chat
+        $stderr.puts "🚀 Created RubyLLM chat instance: #{chat.class}"
 
         # Set model if specified
-        chat.model = model if model
+        if model
+          chat.model = model
+          $stderr.puts "🚀 Set model to: #{model}"
+        end
 
         # Make the request using RubyLLM
+        $stderr.puts "🚀 Making RubyLLM request with content: #{ruby_llm_messages.last[:content][0...100]}..."
         response = chat.ask(ruby_llm_messages.last[:content])
+        $stderr.puts "🚀 Received response: #{response.to_s[0...100]}..."
 
         # Convert response to Raix expected format
-        convert_response(response)
+        result = convert_response(response)
+        $stderr.puts "✅ RubyLLM request completed successfully"
+        result
       end
 
       private

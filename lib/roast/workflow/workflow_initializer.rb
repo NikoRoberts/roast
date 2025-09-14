@@ -190,28 +190,47 @@ module Roast
       end
 
       def configure_api_client
+        $stderr.puts "🔧 Starting API client configuration..."
+        $stderr.puts "🔧 API provider: #{@configuration.api_provider.inspect}"
+        $stderr.puts "🔧 Has API token: #{!@configuration.api_token.blank?}"
+        $stderr.puts "🔧 Client already configured: #{api_client_already_configured?}"
+
         # Skip if api client is already configured (e.g., by initializers)
-        return if api_client_already_configured?
+        if api_client_already_configured?
+          $stderr.puts "✅ API client already configured, skipping"
+          return
+        end
 
         # Skip if no api_token is provided in the workflow
-        return if @configuration.api_token.blank?
+        if @configuration.api_token.blank?
+          $stderr.puts "⚠️  No API token provided, skipping client configuration"
+          return
+        end
 
         client = case @configuration.api_provider
         when :openrouter
+          $stderr.puts "🔧 Configuring OpenRouter client..."
           configure_openrouter_client
         when :openai
+          $stderr.puts "🔧 Configuring OpenAI client..."
           configure_openai_client
         when :ruby_llm
+          $stderr.puts "🔧 Configuring RubyLLM client..."
           configure_ruby_llm_client
         when nil
           # Skip configuration if no api_provider is set
+          $stderr.puts "⚠️  No api_provider set, skipping configuration"
           return
         else
           raise "Unsupported api_provider in workflow configuration: #{@configuration.api_provider}"
         end
 
         # Validate the client configuration by making a test API call
-        validate_api_client(client) if client
+        if client
+          $stderr.puts "🔧 Validating client configuration..."
+          validate_api_client(client)
+          $stderr.puts "✅ Client configuration complete"
+        end
       rescue OpenRouter::ConfigurationError, Faraday::UnauthorizedError => e
         error = Roast::Errors::AuthenticationError.new("API authentication failed: No API token provided or token is invalid")
         error.set_backtrace(e.backtrace)
@@ -270,10 +289,13 @@ module Roast
       end
 
       def configure_ruby_llm_client
-        $stderr.puts "Configuring RubyLLM client with token from workflow"
+        $stderr.puts "🔧 Configuring RubyLLM client with token from workflow"
+        $stderr.puts "🔧 API provider: #{@configuration.api_provider}"
+        $stderr.puts "🔧 Has API token: #{!@configuration.api_token.nil?}"
 
         begin
           require "ruby_llm"
+          $stderr.puts "✅ RubyLLM gem loaded successfully"
         rescue LoadError
           raise ::CLI::Kit::Abort, "RubyLLM gem is required but not available. Please add 'gem \"ruby_llm\"' to your Gemfile."
         end
@@ -284,6 +306,9 @@ module Roast
             # Try to determine which provider based on common key patterns
             # or use the first available API key
             config.openai_api_key = @configuration.api_token.strip if @configuration.api_token
+            $stderr.puts "🔧 Configured RubyLLM with API token"
+          else
+            $stderr.puts "⚠️  No API token found for RubyLLM configuration"
           end
         end
 
@@ -291,10 +316,14 @@ module Roast
         # Since Raix doesn't have native ruby_llm_client support,
         # we'll use the openai_client slot for our wrapper
         client = Roast::Adapters::RubyLLMClientWrapper.new
+        $stderr.puts "🔧 Created RubyLLMClientWrapper instance: #{client.class}"
 
         Raix.configure do |config|
           config.openai_client = client
         end
+        $stderr.puts "✅ Configured Raix with RubyLLM wrapper as openai_client"
+        $stderr.puts "🔧 Current Raix openai_client: #{Raix.configuration.openai_client.class}"
+
         client
       end
 
