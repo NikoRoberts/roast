@@ -1,0 +1,7 @@
+name: RubyLLM Test Workflow
+api_provider: ruby_llm
+api_token: dummy-token-for-testing
+model: gpt-4o-mini
+
+steps:
+  - "Test message extraction from Roast format"

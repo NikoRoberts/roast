@@ -43,9 +43,7 @@ module Roast
             warn_about_missing_raix_configuration(:openrouter)
           end
         when :ruby_llm
-          if Raix.configuration.openai_client.nil?
-            warn_about_missing_raix_configuration(:ruby_llm)
-          end
+          # RubyLLM integration bypasses Raix entirely, no configuration check needed
         when nil
           # If no api_provider is set but we have steps that might need API access,
           # check if any client is configured
