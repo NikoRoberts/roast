@@ -215,40 +215,28 @@ module Roast
 
         $stderr.puts "🔧 Configuring RubyLLM for model: #{model_name}"
 
-        # Configure RubyLLM with the right API key based on model
-        RubyLLM.configure do |config|
-          if model_name.include?("gemini")
-            config.google_cloud_project = ENV['GOOGLE_CLOUD_PROJECT'] if ENV['GOOGLE_CLOUD_PROJECT']
-            config.google_cloud_location = ENV['GOOGLE_CLOUD_LOCATION'] || 'us-central1'
-            # For Gemini, try both possible configuration methods
-            if config.respond_to?(:gemini_api_key=)
-              config.gemini_api_key = api_token.strip
-              $stderr.puts "🔧 Set gemini_api_key via config"
-            end
-            if config.respond_to?(:google_api_key=)
-              config.google_api_key = api_token.strip
-              $stderr.puts "🔧 Set google_api_key via config"
-            end
-            # Also set environment variable as backup
-            ENV['GEMINI_API_KEY'] = api_token.strip
-            $stderr.puts "🔧 Set GEMINI_API_KEY environment variable"
-          elsif model_name.include?("claude") && !model_name.include?("anthropic.")
-            if config.respond_to?(:anthropic_api_key=)
-              config.anthropic_api_key = api_token.strip
-              $stderr.puts "🔧 Set anthropic_api_key via config"
-            end
-            ENV['ANTHROPIC_API_KEY'] = api_token.strip
-          elsif model_name.start_with?("anthropic.", "amazon.", "ai21.", "cohere.", "meta.", "mistral.")
-            # Bedrock models - configure AWS
-            configure_aws_for_bedrock(api_token)
-          else
-            # Default to OpenAI
-            if config.respond_to?(:openai_api_key=)
-              config.openai_api_key = api_token.strip
-              $stderr.puts "🔧 Set openai_api_key via config"
-            end
-            ENV['OPENAI_API_KEY'] = api_token.strip
+        # Set environment variables - RubyLLM reads from ENV vars
+        if model_name.include?("gemini")
+          ENV['GEMINI_API_KEY'] = api_token.strip
+          $stderr.puts "🔧 Set GEMINI_API_KEY environment variable for Gemini model"
+
+          # Also set these if they exist in the environment
+          if ENV['GOOGLE_CLOUD_PROJECT']
+            $stderr.puts "🔧 Using existing GOOGLE_CLOUD_PROJECT: #{ENV['GOOGLE_CLOUD_PROJECT']}"
           end
+          if ENV['GOOGLE_CLOUD_LOCATION']
+            $stderr.puts "🔧 Using existing GOOGLE_CLOUD_LOCATION: #{ENV['GOOGLE_CLOUD_LOCATION']}"
+          end
+        elsif model_name.include?("claude") && !model_name.include?("anthropic.")
+          ENV['ANTHROPIC_API_KEY'] = api_token.strip
+          $stderr.puts "🔧 Set ANTHROPIC_API_KEY environment variable for Claude model"
+        elsif model_name.start_with?("anthropic.", "amazon.", "ai21.", "cohere.", "meta.", "mistral.")
+          # Bedrock models - configure AWS
+          configure_aws_for_bedrock(api_token)
+        else
+          # Default to OpenAI
+          ENV['OPENAI_API_KEY'] = api_token.strip
+          $stderr.puts "🔧 Set OPENAI_API_KEY environment variable for OpenAI model"
         end
       end
 
