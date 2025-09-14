@@ -43,14 +43,13 @@ module Roast
             warn_about_missing_raix_configuration(:openrouter)
           end
         when :ruby_llm
-          if Raix.configuration.respond_to?(:ruby_llm_client) && Raix.configuration.ruby_llm_client.nil?
+          if Raix.configuration.openai_client.nil?
             warn_about_missing_raix_configuration(:ruby_llm)
           end
         when nil
           # If no api_provider is set but we have steps that might need API access,
           # check if any client is configured
-          ruby_llm_client_nil = !Raix.configuration.respond_to?(:ruby_llm_client) || Raix.configuration.ruby_llm_client.nil?
-          if Raix.configuration.openai_client.nil? && Raix.configuration.openrouter_client.nil? && ruby_llm_client_nil
+          if Raix.configuration.openai_client.nil? && Raix.configuration.openrouter_client.nil?
             warn_about_missing_raix_configuration(:any)
           end
         end
@@ -232,10 +231,8 @@ module Roast
         case @configuration.api_provider
         when :openrouter
           Raix.configuration.openrouter_client.present?
-        when :openai
+        when :openai, :ruby_llm
           Raix.configuration.openai_client.present?
-        when :ruby_llm
-          Raix.configuration.respond_to?(:ruby_llm_client) && Raix.configuration.ruby_llm_client.present?
         else
           false
         end
@@ -291,10 +288,12 @@ module Roast
         end
 
         # Create a client wrapper that works with Raix
+        # Since Raix doesn't have native ruby_llm_client support,
+        # we'll use the openai_client slot for our wrapper
         client = Roast::Adapters::RubyLLMClientWrapper.new
 
         Raix.configure do |config|
-          config.ruby_llm_client = client
+          config.openai_client = client
         end
         client
       end
@@ -324,9 +323,6 @@ module Roast
       def strip_tokens_from_existing_clients
         strip_token_in_client(Raix.configuration.openai_client)
         strip_token_in_client(Raix.configuration.openrouter_client)
-        if Raix.configuration.respond_to?(:ruby_llm_client)
-          strip_token_in_client(Raix.configuration.ruby_llm_client)
-        end
       end
 
       def strip_token_in_client(client)
