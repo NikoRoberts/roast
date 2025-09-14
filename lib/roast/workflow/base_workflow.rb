@@ -215,36 +215,28 @@ module Roast
 
         $stderr.puts "🔧 Configuring RubyLLM for model: #{model_name}"
 
-        # Try multiple configuration approaches for RubyLLM
+        # Configure RubyLLM based on actual source code configuration
         if model_name.include?("gemini")
-          # Set multiple possible environment variables
+          # Set the environment variables that RubyLLM expects
           ENV['GEMINI_API_KEY'] = api_token.strip
-          ENV['GOOGLE_API_KEY'] = api_token.strip  # Alternative name
-          $stderr.puts "🔧 Set GEMINI_API_KEY and GOOGLE_API_KEY environment variables"
+          ENV['GOOGLE_CLOUD_LOCATION'] ||= 'us-central1'  # Default location
+          ENV['GOOGLE_CLOUD_PROJECT'] ||= 'default-project'  # Default project (may not be needed for API key auth)
 
-          # Try RubyLLM configuration if methods exist
+          $stderr.puts "🔧 Set GEMINI_API_KEY environment variable"
+          $stderr.puts "🔧 Set GOOGLE_CLOUD_LOCATION to #{ENV['GOOGLE_CLOUD_LOCATION']}"
+          $stderr.puts "🔧 Set GOOGLE_CLOUD_PROJECT to #{ENV['GOOGLE_CLOUD_PROJECT']}"
+
+          # Configure RubyLLM - this should now work as per source code
           begin
             RubyLLM.configure do |config|
-              # Try various possible configuration method names
-              config_methods = [
-                :gemini_api_key=,
-                :google_api_key=,
-                :google_gemini_api_key=,
-                :api_key=
-              ]
-
-              config_methods.each do |method|
-                if config.respond_to?(method)
-                  config.send(method, api_token.strip)
-                  $stderr.puts "🔧 Successfully set #{method.to_s.chomp('=')} via RubyLLM config"
-                end
-              end
+              config.gemini_api_key = ENV.fetch('GEMINI_API_KEY', nil)
+              config.vertexai_location = ENV.fetch('GOOGLE_CLOUD_LOCATION', nil)
+              config.vertexai_project_id = ENV.fetch('GOOGLE_CLOUD_PROJECT', nil)
+              $stderr.puts "🔧 Successfully configured RubyLLM for Gemini"
             end
           rescue => e
-            $stderr.puts "🔧 RubyLLM config attempt failed: #{e.message}"
+            $stderr.puts "🔧 RubyLLM config failed: #{e.message}"
           end
-
-          $stderr.puts "🔧 Available ENV vars: GEMINI_API_KEY=#{ENV['GEMINI_API_KEY'] ? '[SET]' : '[UNSET]'}"
         elsif model_name.include?("claude") && !model_name.include?("anthropic.")
           ENV['ANTHROPIC_API_KEY'] = api_token.strip
           $stderr.puts "🔧 Set ANTHROPIC_API_KEY environment variable for Claude model"
