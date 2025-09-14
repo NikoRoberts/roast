@@ -15,6 +15,11 @@ module Roast
         assert_equal(:openrouter, ApiProviderFactory.from_config(config))
       end
 
+      def test_from_config_with_ruby_llm
+        config = { "api_provider" => "ruby_llm" }
+        assert_equal(:ruby_llm, ApiProviderFactory.from_config(config))
+      end
+
       def test_from_config_with_uppercase
         config = { "api_provider" => "OpenAI" }
         assert_equal(:openai, ApiProviderFactory.from_config(config))
@@ -23,6 +28,11 @@ module Roast
       def test_from_config_with_mixed_case
         config = { "api_provider" => "OpenRouter" }
         assert_equal(:openrouter, ApiProviderFactory.from_config(config))
+      end
+
+      def test_from_config_with_ruby_llm_mixed_case
+        config = { "api_provider" => "Ruby_LLM" }
+        assert_equal(:ruby_llm, ApiProviderFactory.from_config(config))
       end
 
       def test_from_config_without_api_provider
@@ -46,25 +56,36 @@ module Roast
       def test_openrouter_predicate
         assert(ApiProviderFactory.openrouter?(:openrouter))
         refute(ApiProviderFactory.openrouter?(:openai))
+        refute(ApiProviderFactory.openrouter?(:ruby_llm))
         refute(ApiProviderFactory.openrouter?(:unknown))
       end
 
       def test_openai_predicate
         assert(ApiProviderFactory.openai?(:openai))
         refute(ApiProviderFactory.openai?(:openrouter))
+        refute(ApiProviderFactory.openai?(:ruby_llm))
         refute(ApiProviderFactory.openai?(:unknown))
+      end
+
+      def test_ruby_llm_predicate
+        assert(ApiProviderFactory.ruby_llm?(:ruby_llm))
+        refute(ApiProviderFactory.ruby_llm?(:openai))
+        refute(ApiProviderFactory.ruby_llm?(:openrouter))
+        refute(ApiProviderFactory.ruby_llm?(:unknown))
       end
 
       def test_supported_provider_names
         names = ApiProviderFactory.supported_provider_names
         assert_includes(names, "openai")
         assert_includes(names, "openrouter")
-        assert_equal(2, names.length)
+        assert_includes(names, "ruby_llm")
+        assert_equal(3, names.length)
       end
 
       def test_valid_provider_predicate
         assert(ApiProviderFactory.valid_provider?(:openai))
         assert(ApiProviderFactory.valid_provider?(:openrouter))
+        assert(ApiProviderFactory.valid_provider?(:ruby_llm))
         refute(ApiProviderFactory.valid_provider?(:unknown))
         refute(ApiProviderFactory.valid_provider?(nil))
       end

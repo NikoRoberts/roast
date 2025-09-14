@@ -42,10 +42,15 @@ module Roast
           if Raix.configuration.openrouter_client.nil?
             warn_about_missing_raix_configuration(:openrouter)
           end
+        when :ruby_llm
+          if Raix.configuration.respond_to?(:ruby_llm_client) && Raix.configuration.ruby_llm_client.nil?
+            warn_about_missing_raix_configuration(:ruby_llm)
+          end
         when nil
           # If no api_provider is set but we have steps that might need API access,
           # check if any client is configured
-          if Raix.configuration.openai_client.nil? && Raix.configuration.openrouter_client.nil?
+          ruby_llm_client_nil = !Raix.configuration.respond_to?(:ruby_llm_client) || Raix.configuration.ruby_llm_client.nil?
+          if Raix.configuration.openai_client.nil? && Raix.configuration.openrouter_client.nil? && ruby_llm_client_nil
             warn_about_missing_raix_configuration(:any)
           end
         end
@@ -59,6 +64,8 @@ module Roast
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix OpenAI client is not configured!}}")
           when :openrouter
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix OpenRouter client is not configured!}}")
+          when :ruby_llm
+            puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix RubyLLM client is not configured!}}")
           else
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix is not configured!}}")
           end
@@ -78,6 +85,20 @@ module Roast
             puts ::CLI::UI.fmt("{{cyan:    access_token: ENV.fetch(\"OPENROUTER_API_KEY\"),}}")
             puts ::CLI::UI.fmt("{{cyan:    uri_base: \"https://openrouter.ai/api/v1\",}}")
             puts ::CLI::UI.fmt("{{cyan:  )}}")
+          elsif provider == :ruby_llm
+            puts ::CLI::UI.fmt("{{cyan:require \"ruby_llm\"}}")
+            puts
+            puts ::CLI::UI.fmt("{{cyan:Raix.configure do |config|}}")
+            puts ::CLI::UI.fmt("{{cyan:  config.ruby_llm_client = RubyLLM}}")
+            puts ::CLI::UI.fmt("{{cyan:end}}")
+            puts
+            puts ::CLI::UI.fmt("{{cyan:# Configure RubyLLM with your preferred provider:}}")
+            puts ::CLI::UI.fmt("{{cyan:RubyLLM.configure do |config|}}")
+            puts ::CLI::UI.fmt("{{cyan:  # Example for OpenAI:}}")
+            puts ::CLI::UI.fmt("{{cyan:  config.openai_api_key = ENV.fetch(\"OPENAI_API_KEY\")}}")
+            puts ::CLI::UI.fmt("{{cyan:  # Or Anthropic:}}")
+            puts ::CLI::UI.fmt("{{cyan:  # config.anthropic_api_key = ENV.fetch(\"ANTHROPIC_API_KEY\")}}")
+            puts ::CLI::UI.fmt("{{cyan:  # Or any other supported provider}}")
           else
             puts
             puts ::CLI::UI.fmt("{{cyan:faraday_retry = false}}")
@@ -181,6 +202,8 @@ module Roast
           configure_openrouter_client
         when :openai
           configure_openai_client
+        when :ruby_llm
+          configure_ruby_llm_client
         when nil
           # Skip configuration if no api_provider is set
           return
@@ -211,6 +234,8 @@ module Roast
           Raix.configuration.openrouter_client.present?
         when :openai
           Raix.configuration.openai_client.present?
+        when :ruby_llm
+          Raix.configuration.respond_to?(:ruby_llm_client) && Raix.configuration.ruby_llm_client.present?
         else
           false
         end
@@ -247,6 +272,33 @@ module Roast
         client
       end
 
+      def configure_ruby_llm_client
+        $stderr.puts "Configuring RubyLLM client with token from workflow"
+
+        begin
+          require "ruby_llm"
+        rescue LoadError
+          raise ::CLI::Kit::Abort, "RubyLLM gem is required but not available. Please add 'gem \"ruby_llm\"' to your Gemfile."
+        end
+
+        # Configure RubyLLM based on the provider or API key available
+        RubyLLM.configure do |config|
+          if @configuration.api_token
+            # Try to determine which provider based on common key patterns
+            # or use the first available API key
+            config.openai_api_key = @configuration.api_token.strip if @configuration.api_token
+          end
+        end
+
+        # Create a client wrapper that works with Raix
+        client = Roast::Adapters::RubyLLMClientWrapper.new
+
+        Raix.configure do |config|
+          config.ruby_llm_client = client
+        end
+        client
+      end
+
       def validate_api_client(client)
         # Make a lightweight API call to validate the token
         client.models.list if client.respond_to?(:models)
@@ -272,6 +324,9 @@ module Roast
       def strip_tokens_from_existing_clients
         strip_token_in_client(Raix.configuration.openai_client)
         strip_token_in_client(Raix.configuration.openrouter_client)
+        if Raix.configuration.respond_to?(:ruby_llm_client)
+          strip_token_in_client(Raix.configuration.ruby_llm_client)
+        end
       end
 
       def strip_token_in_client(client)

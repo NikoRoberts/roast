@@ -725,8 +725,9 @@ analyze_data:
 
 #### API Provider Configuration
 
-Roast supports both OpenAI and OpenRouter as API providers. By default, Roast uses OpenAI, but you can specify OpenRouter:
+Roast supports multiple AI API providers. By default, Roast uses OpenAI, but you can specify alternative providers:
 
+**OpenRouter:**
 ```yaml
 name: My Workflow
 api_provider: openrouter
@@ -740,6 +741,31 @@ Benefits of using OpenRouter:
 - Consistent API interface across different model providers
 
 When using OpenRouter, specify fully qualified model names including the provider prefix (e.g., `anthropic/claude-3-opus-20240229`).
+
+**RubyLLM (Multi-Provider):**
+```yaml
+name: My Workflow
+api_provider: ruby_llm
+model: gpt-4o-mini  # or claude-3-5-sonnet, gemini-2.5-flash, etc.
+```
+
+Benefits of using RubyLLM:
+- Unified Ruby API for 500+ models from multiple providers
+- Automatic provider routing based on model name
+- Support for OpenAI, Anthropic, Google, and many other providers
+- Easy switching between models without changing configuration
+
+RubyLLM requires the `ruby_llm` gem to be installed separately:
+```bash
+gem install ruby_llm
+```
+
+Configure your API keys using environment variables (RubyLLM will use the appropriate key based on the model):
+```bash
+export OPENAI_API_KEY=your_key       # For OpenAI models
+export ANTHROPIC_API_KEY=your_key    # For Anthropic models
+export RUBY_LLM_API_KEY=your_key     # Or use this as a fallback
+```
 
 #### Dynamic API Tokens and URIs
 

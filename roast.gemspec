@@ -47,4 +47,8 @@ Gem::Specification.new do |spec|
   spec.add_dependency("sqlite3", "~> 2.6")
   spec.add_dependency("thor", "~> 1.3")
   spec.add_dependency("zeitwerk", "~> 2.6")
+
+  # Optional dependency for RubyLLM provider
+  # Users can install this gem separately if they want to use the RubyLLM provider
+  spec.metadata["optional_dependencies"] = "ruby_llm ~> 1.7"
 end
