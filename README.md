@@ -762,10 +762,36 @@ gem install ruby_llm
 
 Configure your API keys using environment variables (RubyLLM will use the appropriate key based on the model):
 ```bash
-export OPENAI_API_KEY=your_key       # For OpenAI models
-export ANTHROPIC_API_KEY=your_key    # For Anthropic models
+export OPENAI_API_KEY=your_key       # For OpenAI models (gpt-4, gpt-3.5-turbo)
+export ANTHROPIC_API_KEY=your_key    # For Anthropic models (claude-3-5-sonnet)
+export GOOGLE_API_KEY=your_key       # For Google models (gemini-1.5-pro, gemini-1.5-flash)
 export RUBY_LLM_API_KEY=your_key     # Or use this as a fallback
 ```
+
+**AWS Bedrock Support:**
+
+For AWS Bedrock models, configure AWS credentials in the workflow:
+
+```yaml
+name: Bedrock Workflow
+api_provider: ruby_llm
+model: anthropic.claude-3-sonnet-20240229-v1:0  # Bedrock model ID
+api_token: us-east-1  # AWS region
+
+# Or with full AWS credentials:
+api_token: '{"region":"us-east-1","access_key":"AKIA...","secret_key":"..."}'
+
+# Or using AWS profile:
+api_token: production  # Uses ~/.aws/credentials profile
+```
+
+Supported Bedrock model prefixes:
+- `anthropic.*` - Claude models on Bedrock
+- `amazon.*` - Amazon Titan models
+- `ai21.*` - AI21 Jurassic models
+- `cohere.*` - Cohere Command models
+- `meta.*` - Meta Llama models
+- `mistral.*` - Mistral models
 
 #### Dynamic API Tokens and URIs
 

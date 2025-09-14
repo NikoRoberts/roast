@@ -314,9 +314,14 @@ module Roast
             if model&.include?("gemini")
               ENV['GOOGLE_API_KEY'] = api_token
               $stderr.puts "🔧 Set GOOGLE_API_KEY environment variable for Gemini model"
-            elsif model&.include?("claude")
+            elsif model&.include?("claude") && !model.include?("anthropic.")
+              # Direct Claude API (not Bedrock)
               ENV['ANTHROPIC_API_KEY'] = api_token
               $stderr.puts "🔧 Set ANTHROPIC_API_KEY environment variable for Claude model"
+            elsif is_bedrock_model?(model)
+              # AWS Bedrock models - api_token should contain AWS credentials or region
+              configure_bedrock_env(api_token)
+              $stderr.puts "🔧 Configured AWS Bedrock environment variables"
             else
               # Default to OpenAI for other models
               ENV['OPENAI_API_KEY'] = api_token
@@ -365,6 +370,62 @@ module Roast
         return unless client.respond_to?(:access_token)
 
         client.instance_variable_set(:@access_token, client.access_token&.strip)
+      end
+
+      # Check if the model is an AWS Bedrock model
+      def is_bedrock_model?(model)
+        return false unless model
+
+        bedrock_prefixes = [
+          "anthropic.",     # anthropic.claude-3-sonnet-20240229-v1:0
+          "amazon.",        # amazon.titan-text-express-v1
+          "ai21.",          # ai21.j2-ultra-v1
+          "cohere.",        # cohere.command-text-v14
+          "meta.",          # meta.llama2-70b-chat-v1
+          "mistral.",       # mistral.mistral-7b-instruct-v0:2
+          "stability.",     # stability.stable-diffusion-xl-base-1-0
+        ]
+
+        bedrock_prefixes.any? { |prefix| model.start_with?(prefix) }
+      end
+
+      # Configure AWS Bedrock environment variables
+      def configure_bedrock_env(config_value)
+        # config_value could be:
+        # 1. Just AWS region: "us-east-1"
+        # 2. JSON with AWS credentials: '{"region":"us-east-1","access_key":"..","secret_key":".."}'
+        # 3. AWS profile name: "default" or "production"
+
+        begin
+          # Try parsing as JSON first
+          if config_value.start_with?("{")
+            aws_config = JSON.parse(config_value)
+            ENV['AWS_REGION'] = aws_config['region'] if aws_config['region']
+            ENV['AWS_ACCESS_KEY_ID'] = aws_config['access_key'] if aws_config['access_key']
+            ENV['AWS_SECRET_ACCESS_KEY'] = aws_config['secret_key'] if aws_config['secret_key']
+            ENV['AWS_PROFILE'] = aws_config['profile'] if aws_config['profile']
+            $stderr.puts "🔧 Set AWS credentials from JSON config"
+          elsif config_value.match?(/^[a-z0-9-]+$/)
+            # Looks like a region or profile name
+            if config_value.include?("-")
+              # Probably a region like "us-east-1"
+              ENV['AWS_REGION'] = config_value
+              $stderr.puts "🔧 Set AWS_REGION to #{config_value}"
+            else
+              # Probably a profile name
+              ENV['AWS_PROFILE'] = config_value
+              $stderr.puts "🔧 Set AWS_PROFILE to #{config_value}"
+            end
+          else
+            # Treat as region by default
+            ENV['AWS_REGION'] = config_value
+            $stderr.puts "🔧 Set AWS_REGION to #{config_value}"
+          end
+        rescue JSON::ParserError
+          # If JSON parsing fails, treat as region/profile
+          ENV['AWS_REGION'] = config_value
+          $stderr.puts "🔧 Set AWS_REGION to #{config_value} (fallback)"
+        end
       end
     end
   end
