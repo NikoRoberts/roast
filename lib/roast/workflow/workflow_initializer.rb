@@ -188,36 +188,25 @@ module Roast
       end
 
       def configure_api_client
-        $stderr.puts "🔧 Starting API client configuration..."
-        $stderr.puts "🔧 API provider: #{@configuration.api_provider.inspect}"
-        $stderr.puts "🔧 Has API token: #{!@configuration.api_token.blank?}"
-        $stderr.puts "🔧 Client already configured: #{api_client_already_configured?}"
-
         # Skip if api client is already configured (e.g., by initializers)
         if api_client_already_configured?
-          $stderr.puts "✅ API client already configured, skipping"
           return
         end
 
         # Skip if no api_token is provided in the workflow
         if @configuration.api_token.blank?
-          $stderr.puts "⚠️  No API token provided, skipping client configuration"
           return
         end
 
         client = case @configuration.api_provider
         when :openrouter
-          $stderr.puts "🔧 Configuring OpenRouter client..."
           configure_openrouter_client
         when :openai
-          $stderr.puts "🔧 Configuring OpenAI client..."
           configure_openai_client
         when :ruby_llm
-          $stderr.puts "🔧 Configuring RubyLLM client..."
           configure_ruby_llm_client
         when nil
           # Skip configuration if no api_provider is set
-          $stderr.puts "⚠️  No api_provider set, skipping configuration"
           return
         else
           raise "Unsupported api_provider in workflow configuration: #{@configuration.api_provider}"
@@ -225,9 +214,7 @@ module Roast
 
         # Validate the client configuration by making a test API call
         if client
-          $stderr.puts "🔧 Validating client configuration..."
           validate_api_client(client)
-          $stderr.puts "✅ Client configuration complete"
         end
       rescue OpenRouter::ConfigurationError, Faraday::UnauthorizedError => e
         error = Roast::Errors::AuthenticationError.new("API authentication failed: No API token provided or token is invalid")
@@ -290,13 +277,8 @@ module Roast
       end
 
       def configure_ruby_llm_client
-        $stderr.puts "🔧 Configuring RubyLLM client with token from workflow"
-        $stderr.puts "🔧 API provider: #{@configuration.api_provider}"
-        $stderr.puts "🔧 Has API token: #{!@configuration.api_token.nil?}"
-
         begin
           require "ruby_llm"
-          $stderr.puts "✅ RubyLLM gem loaded successfully"
         rescue LoadError
           raise ::CLI::Kit::Abort, "RubyLLM gem is required but not available. Please add 'gem \"ruby_llm\"' to your Gemfile."
         end
@@ -311,30 +293,22 @@ module Roast
 
             if model&.include?("gemini")
               ENV['GEMINI_API_KEY'] = api_token
-              $stderr.puts "🔧 Set GEMINI_API_KEY environment variable for Gemini model"
             elsif model&.include?("claude") && !model.include?("anthropic.")
               # Direct Claude API (not Bedrock)
               ENV['ANTHROPIC_API_KEY'] = api_token
-              $stderr.puts "🔧 Set ANTHROPIC_API_KEY environment variable for Claude model"
             elsif is_bedrock_model?(model)
               # AWS Bedrock models - api_token should contain AWS credentials or region
               configure_bedrock_env(api_token)
-              $stderr.puts "🔧 Configured AWS Bedrock environment variables"
             elsif is_other_provider_model?(model)
               configure_other_provider_env(model, api_token)
             else
               # Default to OpenAI for other models
               ENV['OPENAI_API_KEY'] = api_token
-              $stderr.puts "🔧 Set OPENAI_API_KEY environment variable for OpenAI model"
             end
-          else
-            $stderr.puts "⚠️  No API token found for RubyLLM configuration"
           end
         end
 
         # For RubyLLM, we don't need to configure Raix since we handle it directly in BaseWorkflow
-        $stderr.puts "✅ RubyLLM configured for direct integration (bypassing Raix)"
-
         # Return a simple marker object to indicate success
         :ruby_llm_configured
       end

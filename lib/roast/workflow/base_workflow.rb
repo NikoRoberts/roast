@@ -170,10 +170,6 @@ module Roast
         messages = kwargs[:messages] || transcript.flatten.compact
         model_name = kwargs[:model] || model
 
-        $stderr.puts "🚀 Direct RubyLLM completion - Model: #{model_name}"
-        $stderr.puts "🚀 Messages count: #{messages.length}"
-        $stderr.puts "🔧 Raw messages array: #{messages.inspect[0...500]}..."
-        $stderr.puts "🔧 Transcript content: #{transcript.inspect[0...300]}..."
 
         # Ensure RubyLLM has the right configuration before creating chat instance
         configure_ruby_llm_for_model(model_name)
@@ -187,8 +183,6 @@ module Roast
 
         # Extract the content from the last user message
         last_message = messages.last
-        $stderr.puts "🔧 Last message type: #{last_message.class}"
-        $stderr.puts "🔧 Last message content: #{last_message.inspect[0...200]}..."
 
         content = case last_message
         when Hash
@@ -210,33 +204,22 @@ module Roast
             end
           end
 
-          $stderr.puts "🔧 Extracted from hash: #{extracted&.class}"
           extracted
         when String
-          $stderr.puts "🔧 Using string directly"
           last_message
         else
-          $stderr.puts "🔧 Converting to string: #{last_message.class}"
           last_message.to_s
         end
 
         if content.nil? || content.empty?
-          $stderr.puts "❌ No content extracted from message!"
-          $stderr.puts "❌ Messages array: #{messages.inspect}"
           raise ArgumentError, "No content could be extracted from messages"
         end
 
-        $stderr.puts "🚀 Making RubyLLM request with content: #{content&.[](0...100)}..."
         response_text = chat.ask(content)
-        $stderr.puts "✅ RubyLLM request completed successfully"
 
         # Return response in the format Roast expects
         response_text
       rescue => e
-        $stderr.puts "❌ RubyLLM error: #{e.message}"
-        $stderr.puts "❌ RubyLLM error class: #{e.class}"
-        $stderr.puts "❌ RubyLLM backtrace:"
-        e.backtrace&.first(10)&.each { |line| $stderr.puts "  #{line}" }
         raise e
       end
 
@@ -248,26 +231,15 @@ module Roast
         api_token = workflow_configuration&.api_token
         return unless api_token
 
-        $stderr.puts "🔧 Configuring RubyLLM for model: #{model_name}"
-
         # Configure RubyLLM based on official documentation
         if model_name.include?("gemini")
           # Set the required environment variable
           ENV['GEMINI_API_KEY'] = api_token.strip
-          $stderr.puts "🔧 Set GEMINI_API_KEY environment variable"
 
           # Set optional Vertex AI environment variables if not already present
           # These are needed only for Vertex AI, not direct Gemini API
           unless ENV['GOOGLE_CLOUD_LOCATION']
             ENV['GOOGLE_CLOUD_LOCATION'] = 'us-central1'
-            $stderr.puts "🔧 Set default GOOGLE_CLOUD_LOCATION to us-central1"
-          end
-
-          # Note: GOOGLE_CLOUD_PROJECT is optional for Gemini API key auth
-          if ENV['GOOGLE_CLOUD_PROJECT']
-            $stderr.puts "🔧 Using existing GOOGLE_CLOUD_PROJECT: #{ENV['GOOGLE_CLOUD_PROJECT']}"
-          else
-            $stderr.puts "🔧 No GOOGLE_CLOUD_PROJECT set (optional for Gemini API)"
           end
 
           # Configure RubyLLM as per documentation
@@ -278,25 +250,19 @@ module Roast
               if ENV['GOOGLE_CLOUD_PROJECT']
                 config.vertexai_project_id = ENV['GOOGLE_CLOUD_PROJECT']
                 config.vertexai_location = ENV['GOOGLE_CLOUD_LOCATION']
-                $stderr.puts "🔧 Configured for Vertex AI with project #{ENV['GOOGLE_CLOUD_PROJECT']}"
-              else
-                $stderr.puts "🔧 Configured for direct Gemini API (no Vertex AI project)"
               end
             end
-            $stderr.puts "🔧 Successfully configured RubyLLM for Gemini"
           rescue => e
-            $stderr.puts "🔧 RubyLLM config failed: #{e.message}"
+            # Silently continue on configuration errors
           end
         elsif model_name.include?("claude") && !model_name.include?("anthropic.")
           ENV['ANTHROPIC_API_KEY'] = api_token.strip
-          $stderr.puts "🔧 Set ANTHROPIC_API_KEY environment variable for Claude model"
         elsif model_name.start_with?("anthropic.", "amazon.", "ai21.", "cohere.", "meta.", "mistral.")
           # Bedrock models - configure AWS
           configure_aws_for_bedrock(api_token)
         else
           # Default to OpenAI
           ENV['OPENAI_API_KEY'] = api_token.strip
-          $stderr.puts "🔧 Set OPENAI_API_KEY environment variable for OpenAI model"
         end
       end
 
