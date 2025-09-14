@@ -10,6 +10,10 @@ module Roast
         @original_openrouter_key = ENV["OPENROUTER_API_KEY"]
         @original_ruby_llm_key = ENV["RUBY_LLM_API_KEY"]
         @original_anthropic_key = ENV["ANTHROPIC_API_KEY"]
+        @original_gemini_key = ENV["GEMINI_API_KEY"]
+        @original_mistral_key = ENV["MISTRAL_API_KEY"]
+        @original_deepseek_key = ENV["DEEPSEEK_API_KEY"]
+        @original_perplexity_key = ENV["PERPLEXITY_API_KEY"]
       end
 
       def teardown
@@ -17,6 +21,10 @@ module Roast
         ENV["OPENROUTER_API_KEY"] = @original_openrouter_key
         ENV["RUBY_LLM_API_KEY"] = @original_ruby_llm_key
         ENV["ANTHROPIC_API_KEY"] = @original_anthropic_key
+        ENV["GEMINI_API_KEY"] = @original_gemini_key
+        ENV["MISTRAL_API_KEY"] = @original_mistral_key
+        ENV["DEEPSEEK_API_KEY"] = @original_deepseek_key
+        ENV["PERPLEXITY_API_KEY"] = @original_perplexity_key
       end
 
       def test_initializes_with_config_hash

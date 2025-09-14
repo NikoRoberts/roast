@@ -764,7 +764,10 @@ Configure your API keys using environment variables (RubyLLM will use the approp
 ```bash
 export OPENAI_API_KEY=your_key       # For OpenAI models (gpt-4, gpt-3.5-turbo)
 export ANTHROPIC_API_KEY=your_key    # For Anthropic models (claude-3-5-sonnet)
-export GOOGLE_API_KEY=your_key       # For Google models (gemini-1.5-pro, gemini-1.5-flash)
+export GEMINI_API_KEY=your_key       # For Google models (gemini-1.5-pro, gemini-1.5-flash)
+export MISTRAL_API_KEY=your_key      # For Mistral models
+export DEEPSEEK_API_KEY=your_key     # For DeepSeek models
+export PERPLEXITY_API_KEY=your_key   # For Perplexity models
 export RUBY_LLM_API_KEY=your_key     # Or use this as a fallback
 ```
 

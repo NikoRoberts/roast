@@ -312,8 +312,8 @@ module Roast
             api_token = @configuration.api_token.strip
 
             if model&.include?("gemini")
-              ENV['GOOGLE_API_KEY'] = api_token
-              $stderr.puts "🔧 Set GOOGLE_API_KEY environment variable for Gemini model"
+              ENV['GEMINI_API_KEY'] = api_token
+              $stderr.puts "🔧 Set GEMINI_API_KEY environment variable for Gemini model"
             elsif model&.include?("claude") && !model.include?("anthropic.")
               # Direct Claude API (not Bedrock)
               ENV['ANTHROPIC_API_KEY'] = api_token
@@ -322,6 +322,8 @@ module Roast
               # AWS Bedrock models - api_token should contain AWS credentials or region
               configure_bedrock_env(api_token)
               $stderr.puts "🔧 Configured AWS Bedrock environment variables"
+            elsif is_other_provider_model?(model)
+              configure_other_provider_env(model, api_token)
             else
               # Default to OpenAI for other models
               ENV['OPENAI_API_KEY'] = api_token
@@ -425,6 +427,43 @@ module Roast
           # If JSON parsing fails, treat as region/profile
           ENV['AWS_REGION'] = config_value
           $stderr.puts "🔧 Set AWS_REGION to #{config_value} (fallback)"
+        end
+      end
+
+      # Check if model belongs to other supported providers
+      def is_other_provider_model?(model)
+        return false unless model
+
+        other_provider_patterns = [
+          /mistral/i,           # Mistral models
+          /deepseek/i,          # DeepSeek models
+          /perplexity/i,        # Perplexity models
+          /llama.*ollama/i,     # Ollama models
+        ]
+
+        other_provider_patterns.any? { |pattern| model.match?(pattern) }
+      end
+
+      # Configure environment variables for other supported providers
+      def configure_other_provider_env(model, api_token)
+        case model.downcase
+        when /mistral/
+          ENV['MISTRAL_API_KEY'] = api_token
+          $stderr.puts "🔧 Set MISTRAL_API_KEY environment variable for Mistral model"
+        when /deepseek/
+          ENV['DEEPSEEK_API_KEY'] = api_token
+          $stderr.puts "🔧 Set DEEPSEEK_API_KEY environment variable for DeepSeek model"
+        when /perplexity/
+          ENV['PERPLEXITY_API_KEY'] = api_token
+          $stderr.puts "🔧 Set PERPLEXITY_API_KEY environment variable for Perplexity model"
+        when /ollama/
+          # Ollama typically doesn't need API key, but may need base URL
+          ENV['OLLAMA_API_BASE'] = api_token
+          $stderr.puts "🔧 Set OLLAMA_API_BASE environment variable for Ollama model"
+        else
+          # If we can't determine the provider, default to OpenAI
+          ENV['OPENAI_API_KEY'] = api_token
+          $stderr.puts "🔧 Set OPENAI_API_KEY environment variable (unknown provider fallback)"
         end
       end
     end
