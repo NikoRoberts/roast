@@ -215,25 +215,40 @@ module Roast
 
         $stderr.puts "🔧 Configuring RubyLLM for model: #{model_name}"
 
-        # Configure RubyLLM based on actual source code configuration
+        # Configure RubyLLM based on official documentation
         if model_name.include?("gemini")
-          # Set the environment variables that RubyLLM expects
+          # Set the required environment variable
           ENV['GEMINI_API_KEY'] = api_token.strip
-          ENV['GOOGLE_CLOUD_LOCATION'] ||= 'us-central1'  # Default location
-          ENV['GOOGLE_CLOUD_PROJECT'] ||= 'default-project'  # Default project (may not be needed for API key auth)
-
           $stderr.puts "🔧 Set GEMINI_API_KEY environment variable"
-          $stderr.puts "🔧 Set GOOGLE_CLOUD_LOCATION to #{ENV['GOOGLE_CLOUD_LOCATION']}"
-          $stderr.puts "🔧 Set GOOGLE_CLOUD_PROJECT to #{ENV['GOOGLE_CLOUD_PROJECT']}"
 
-          # Configure RubyLLM - this should now work as per source code
+          # Set optional Vertex AI environment variables if not already present
+          # These are needed only for Vertex AI, not direct Gemini API
+          unless ENV['GOOGLE_CLOUD_LOCATION']
+            ENV['GOOGLE_CLOUD_LOCATION'] = 'us-central1'
+            $stderr.puts "🔧 Set default GOOGLE_CLOUD_LOCATION to us-central1"
+          end
+
+          # Note: GOOGLE_CLOUD_PROJECT is optional for Gemini API key auth
+          if ENV['GOOGLE_CLOUD_PROJECT']
+            $stderr.puts "🔧 Using existing GOOGLE_CLOUD_PROJECT: #{ENV['GOOGLE_CLOUD_PROJECT']}"
+          else
+            $stderr.puts "🔧 No GOOGLE_CLOUD_PROJECT set (optional for Gemini API)"
+          end
+
+          # Configure RubyLLM as per documentation
           begin
             RubyLLM.configure do |config|
-              config.gemini_api_key = ENV.fetch('GEMINI_API_KEY', nil)
-              config.vertexai_location = ENV.fetch('GOOGLE_CLOUD_LOCATION', nil)
-              config.vertexai_project_id = ENV.fetch('GOOGLE_CLOUD_PROJECT', nil)
-              $stderr.puts "🔧 Successfully configured RubyLLM for Gemini"
+              config.gemini_api_key = api_token.strip
+              # Only set Vertex AI configs if we have a project ID
+              if ENV['GOOGLE_CLOUD_PROJECT']
+                config.vertexai_project_id = ENV['GOOGLE_CLOUD_PROJECT']
+                config.vertexai_location = ENV['GOOGLE_CLOUD_LOCATION']
+                $stderr.puts "🔧 Configured for Vertex AI with project #{ENV['GOOGLE_CLOUD_PROJECT']}"
+              else
+                $stderr.puts "🔧 Configured for direct Gemini API (no Vertex AI project)"
+              end
             end
+            $stderr.puts "🔧 Successfully configured RubyLLM for Gemini"
           rescue => e
             $stderr.puts "🔧 RubyLLM config failed: #{e.message}"
           end
