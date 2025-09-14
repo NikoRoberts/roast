@@ -215,7 +215,24 @@ module Roast
           raise ArgumentError, "No content could be extracted from messages"
         end
 
-        response_text = chat.ask(content)
+        response = chat.ask(content)
+
+        # Extract text content from RubyLLM::Message object
+        response_text = case response
+        when String
+          response
+        else
+          # RubyLLM returns Message objects - extract the content
+          if response.respond_to?(:content)
+            response.content
+          elsif response.respond_to?(:text)
+            response.text
+          elsif response.respond_to?(:message)
+            response.message
+          else
+            response.to_s
+          end
+        end
 
         # Return response in the format Roast expects
         response_text
