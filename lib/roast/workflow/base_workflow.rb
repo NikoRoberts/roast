@@ -169,17 +169,24 @@ module Roast
 
         messages = kwargs[:messages] || transcript.flatten.compact
         model_name = kwargs[:model] || model
-
+        available_tools = kwargs[:available_tools]
 
         # Ensure RubyLLM has the right configuration before creating chat instance
         configure_ruby_llm_for_model(model_name)
 
-        # Create RubyLLM chat instance with model
-        chat = if model_name
-          RubyLLM.chat(model: model_name)
-        else
-          RubyLLM.chat
+        # Create RubyLLM chat instance with model and tools
+        chat_params = {}
+        chat_params[:model] = model_name if model_name
+
+        # Add function definitions if tools are available
+        if available_tools && available_tools.any?
+          # Convert Raix function definitions to RubyLLM format
+          chat_params[:functions] = available_tools.map do |tool_def|
+            convert_function_definition(tool_def)
+          end
         end
+
+        chat = RubyLLM.chat(**chat_params)
 
         # Extract the content from the last user message
         last_message = messages.last
@@ -217,6 +224,21 @@ module Roast
 
         response = chat.ask(content)
 
+        # Handle function calls if present
+        if response.respond_to?(:function_call) && response.function_call
+          # Execute the function call
+          function_name = response.function_call['name']
+          function_args = response.function_call['arguments']
+
+          # Execute the function through Raix's dispatch system
+          if respond_to?(function_name.to_sym)
+            function_result = send(function_name.to_sym, **function_args.transform_keys(&:to_sym))
+
+            # Send function result back to LLM
+            response = chat.ask("Function #{function_name} returned: #{function_result}")
+          end
+        end
+
         # Extract text content from RubyLLM::Message object
         response_text = case response
         when String
@@ -238,6 +260,19 @@ module Roast
         response_text
       rescue => e
         raise e
+      end
+
+      # Convert Raix function definition to RubyLLM format
+      def convert_function_definition(tool_def)
+        {
+          name: tool_def[:name] || tool_def['name'],
+          description: tool_def[:description] || tool_def['description'],
+          parameters: {
+            type: "object",
+            properties: tool_def[:parameters] || tool_def['parameters'] || {},
+            required: tool_def[:required] || tool_def['required'] || []
+          }
+        }
       end
 
       # Configure RubyLLM for the specific model at runtime
