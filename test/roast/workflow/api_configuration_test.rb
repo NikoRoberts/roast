@@ -8,11 +8,23 @@ module Roast
       def setup
         @original_openai_key = ENV["OPENAI_API_KEY"]
         @original_openrouter_key = ENV["OPENROUTER_API_KEY"]
+        @original_ruby_llm_key = ENV["RUBY_LLM_API_KEY"]
+        @original_anthropic_key = ENV["ANTHROPIC_API_KEY"]
+        @original_gemini_key = ENV["GEMINI_API_KEY"]
+        @original_mistral_key = ENV["MISTRAL_API_KEY"]
+        @original_deepseek_key = ENV["DEEPSEEK_API_KEY"]
+        @original_perplexity_key = ENV["PERPLEXITY_API_KEY"]
       end
 
       def teardown
         ENV["OPENAI_API_KEY"] = @original_openai_key
         ENV["OPENROUTER_API_KEY"] = @original_openrouter_key
+        ENV["RUBY_LLM_API_KEY"] = @original_ruby_llm_key
+        ENV["ANTHROPIC_API_KEY"] = @original_anthropic_key
+        ENV["GEMINI_API_KEY"] = @original_gemini_key
+        ENV["MISTRAL_API_KEY"] = @original_mistral_key
+        ENV["DEEPSEEK_API_KEY"] = @original_deepseek_key
+        ENV["PERPLEXITY_API_KEY"] = @original_perplexity_key
       end
 
       def test_initializes_with_config_hash
@@ -41,6 +53,7 @@ module Roast
 
         assert(api_config.openai?)
         refute(api_config.openrouter?)
+        refute(api_config.ruby_llm?)
       end
 
       def test_openrouter_predicate
@@ -49,6 +62,16 @@ module Roast
 
         assert(api_config.openrouter?)
         refute(api_config.openai?)
+        refute(api_config.ruby_llm?)
+      end
+
+      def test_ruby_llm_predicate
+        config = { "api_provider" => "ruby_llm" }
+        api_config = ApiConfiguration.new(config)
+
+        assert(api_config.ruby_llm?)
+        refute(api_config.openai?)
+        refute(api_config.openrouter?)
       end
 
       def test_effective_token_returns_config_token_when_present
@@ -73,6 +96,34 @@ module Roast
 
         api_config = ApiConfiguration.new(config)
         assert_equal("env-openrouter-token", api_config.effective_token)
+      end
+
+      def test_effective_token_returns_ruby_llm_env_when_no_config_token
+        config = { "api_provider" => "ruby_llm" }
+        ENV["RUBY_LLM_API_KEY"] = "env-ruby-llm-token"
+
+        api_config = ApiConfiguration.new(config)
+        assert_equal("env-ruby-llm-token", api_config.effective_token)
+      end
+
+      def test_effective_token_falls_back_to_openai_for_ruby_llm
+        config = { "api_provider" => "ruby_llm" }
+        ENV["RUBY_LLM_API_KEY"] = nil
+        ENV["OPENAI_API_KEY"] = "env-openai-token"
+        ENV["ANTHROPIC_API_KEY"] = "env-anthropic-token"
+
+        api_config = ApiConfiguration.new(config)
+        assert_equal("env-openai-token", api_config.effective_token)
+      end
+
+      def test_effective_token_falls_back_to_anthropic_for_ruby_llm
+        config = { "api_provider" => "ruby_llm" }
+        ENV["RUBY_LLM_API_KEY"] = nil
+        ENV["OPENAI_API_KEY"] = nil
+        ENV["ANTHROPIC_API_KEY"] = "env-anthropic-token"
+
+        api_config = ApiConfiguration.new(config)
+        assert_equal("env-anthropic-token", api_config.effective_token)
       end
 
       def test_effective_token_returns_nil_when_no_tokens_available

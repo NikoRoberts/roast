@@ -1,0 +1,5 @@
+name: RubyLLM Workflow Test Without API Token
+api_provider: ruby_llm
+model: gpt-4o-mini
+steps:
+  - test_step

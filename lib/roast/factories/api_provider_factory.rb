@@ -8,6 +8,7 @@ module Roast
       SUPPORTED_PROVIDERS = {
         "openai" => :openai,
         "openrouter" => :openrouter,
+        "ruby_llm" => :ruby_llm,
       }.freeze
 
       DEFAULT_PROVIDER = :openai
@@ -42,6 +43,13 @@ module Roast
         # @return [Boolean]
         def openai?(provider)
           provider == :openai
+        end
+
+        # Returns true if the provider is RubyLLM
+        # @param provider [Symbol] The provider symbol
+        # @return [Boolean]
+        def ruby_llm?(provider)
+          provider == :ruby_llm
         end
 
         # Returns the list of supported provider names

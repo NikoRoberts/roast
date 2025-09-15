@@ -42,6 +42,8 @@ module Roast
           if Raix.configuration.openrouter_client.nil?
             warn_about_missing_raix_configuration(:openrouter)
           end
+        when :ruby_llm
+          # RubyLLM integration bypasses Raix entirely, no configuration check needed
         when nil
           # If no api_provider is set but we have steps that might need API access,
           # check if any client is configured
@@ -59,6 +61,8 @@ module Roast
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix OpenAI client is not configured!}}")
           when :openrouter
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix OpenRouter client is not configured!}}")
+          when :ruby_llm
+            puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix RubyLLM client is not configured!}}")
           else
             puts ::CLI::UI.fmt("{{yellow:⚠️  Warning: Raix is not configured!}}")
           end
@@ -78,6 +82,20 @@ module Roast
             puts ::CLI::UI.fmt("{{cyan:    access_token: ENV.fetch(\"OPENROUTER_API_KEY\"),}}")
             puts ::CLI::UI.fmt("{{cyan:    uri_base: \"https://openrouter.ai/api/v1\",}}")
             puts ::CLI::UI.fmt("{{cyan:  )}}")
+          elsif provider == :ruby_llm
+            puts ::CLI::UI.fmt("{{cyan:require \"ruby_llm\"}}")
+            puts
+            puts ::CLI::UI.fmt("{{cyan:Raix.configure do |config|}}")
+            puts ::CLI::UI.fmt("{{cyan:  config.ruby_llm_client = RubyLLM}}")
+            puts ::CLI::UI.fmt("{{cyan:end}}")
+            puts
+            puts ::CLI::UI.fmt("{{cyan:# Configure RubyLLM with your preferred provider:}}")
+            puts ::CLI::UI.fmt("{{cyan:RubyLLM.configure do |config|}}")
+            puts ::CLI::UI.fmt("{{cyan:  # Example for OpenAI:}}")
+            puts ::CLI::UI.fmt("{{cyan:  config.openai_api_key = ENV.fetch(\"OPENAI_API_KEY\")}}")
+            puts ::CLI::UI.fmt("{{cyan:  # Or Anthropic:}}")
+            puts ::CLI::UI.fmt("{{cyan:  # config.anthropic_api_key = ENV.fetch(\"ANTHROPIC_API_KEY\")}}")
+            puts ::CLI::UI.fmt("{{cyan:  # Or any other supported provider}}")
           else
             puts
             puts ::CLI::UI.fmt("{{cyan:faraday_retry = false}}")
@@ -171,16 +189,22 @@ module Roast
 
       def configure_api_client
         # Skip if api client is already configured (e.g., by initializers)
-        return if api_client_already_configured?
+        if api_client_already_configured?
+          return
+        end
 
         # Skip if no api_token is provided in the workflow
-        return if @configuration.api_token.blank?
+        if @configuration.api_token.blank?
+          return
+        end
 
         client = case @configuration.api_provider
         when :openrouter
           configure_openrouter_client
         when :openai
           configure_openai_client
+        when :ruby_llm
+          configure_ruby_llm_client
         when nil
           # Skip configuration if no api_provider is set
           return
@@ -189,7 +213,9 @@ module Roast
         end
 
         # Validate the client configuration by making a test API call
-        validate_api_client(client) if client
+        if client
+          validate_api_client(client)
+        end
       rescue OpenRouter::ConfigurationError, Faraday::UnauthorizedError => e
         error = Roast::Errors::AuthenticationError.new("API authentication failed: No API token provided or token is invalid")
         error.set_backtrace(e.backtrace)
@@ -211,6 +237,9 @@ module Roast
           Raix.configuration.openrouter_client.present?
         when :openai
           Raix.configuration.openai_client.present?
+        when :ruby_llm
+          # RubyLLM doesn't need Raix client configuration
+          false
         else
           false
         end
@@ -247,6 +276,43 @@ module Roast
         client
       end
 
+      def configure_ruby_llm_client
+        begin
+          require "ruby_llm"
+        rescue LoadError
+          raise ::CLI::Kit::Abort, "RubyLLM gem is required but not available. Please add 'gem \"ruby_llm\"' to your Gemfile."
+        end
+
+        # Configure RubyLLM based on the provider or API key available
+        RubyLLM.configure do |config|
+          if @configuration.api_token
+            # RubyLLM uses environment variables for different providers
+            # We'll set the appropriate ENV var based on the model
+            model = @configuration.model
+            api_token = @configuration.api_token.strip
+
+            if model&.include?("gemini")
+              ENV['GEMINI_API_KEY'] = api_token
+            elsif model&.include?("claude") && !model.include?("anthropic.")
+              # Direct Claude API (not Bedrock)
+              ENV['ANTHROPIC_API_KEY'] = api_token
+            elsif is_bedrock_model?(model)
+              # AWS Bedrock models - api_token should contain AWS credentials or region
+              configure_bedrock_env(api_token)
+            elsif is_other_provider_model?(model)
+              configure_other_provider_env(model, api_token)
+            else
+              # Default to OpenAI for other models
+              ENV['OPENAI_API_KEY'] = api_token
+            end
+          end
+        end
+
+        # For RubyLLM, we don't need to configure Raix since we handle it directly in BaseWorkflow
+        # Return a simple marker object to indicate success
+        :ruby_llm_configured
+      end
+
       def validate_api_client(client)
         # Make a lightweight API call to validate the token
         client.models.list if client.respond_to?(:models)
@@ -278,6 +344,99 @@ module Roast
         return unless client.respond_to?(:access_token)
 
         client.instance_variable_set(:@access_token, client.access_token&.strip)
+      end
+
+      # Check if the model is an AWS Bedrock model
+      def is_bedrock_model?(model)
+        return false unless model
+
+        bedrock_prefixes = [
+          "anthropic.",     # anthropic.claude-3-sonnet-20240229-v1:0
+          "amazon.",        # amazon.titan-text-express-v1
+          "ai21.",          # ai21.j2-ultra-v1
+          "cohere.",        # cohere.command-text-v14
+          "meta.",          # meta.llama2-70b-chat-v1
+          "mistral.",       # mistral.mistral-7b-instruct-v0:2
+          "stability.",     # stability.stable-diffusion-xl-base-1-0
+        ]
+
+        bedrock_prefixes.any? { |prefix| model.start_with?(prefix) }
+      end
+
+      # Configure AWS Bedrock environment variables
+      def configure_bedrock_env(config_value)
+        # config_value could be:
+        # 1. Just AWS region: "us-east-1"
+        # 2. JSON with AWS credentials: '{"region":"us-east-1","access_key":"..","secret_key":".."}'
+        # 3. AWS profile name: "default" or "production"
+
+        begin
+          # Try parsing as JSON first
+          if config_value.start_with?("{")
+            aws_config = JSON.parse(config_value)
+            ENV['AWS_REGION'] = aws_config['region'] if aws_config['region']
+            ENV['AWS_ACCESS_KEY_ID'] = aws_config['access_key'] if aws_config['access_key']
+            ENV['AWS_SECRET_ACCESS_KEY'] = aws_config['secret_key'] if aws_config['secret_key']
+            ENV['AWS_PROFILE'] = aws_config['profile'] if aws_config['profile']
+            $stderr.puts "🔧 Set AWS credentials from JSON config"
+          elsif config_value.match?(/^[a-z0-9-]+$/)
+            # Looks like a region or profile name
+            if config_value.include?("-")
+              # Probably a region like "us-east-1"
+              ENV['AWS_REGION'] = config_value
+              $stderr.puts "🔧 Set AWS_REGION to #{config_value}"
+            else
+              # Probably a profile name
+              ENV['AWS_PROFILE'] = config_value
+              $stderr.puts "🔧 Set AWS_PROFILE to #{config_value}"
+            end
+          else
+            # Treat as region by default
+            ENV['AWS_REGION'] = config_value
+            $stderr.puts "🔧 Set AWS_REGION to #{config_value}"
+          end
+        rescue JSON::ParserError
+          # If JSON parsing fails, treat as region/profile
+          ENV['AWS_REGION'] = config_value
+          $stderr.puts "🔧 Set AWS_REGION to #{config_value} (fallback)"
+        end
+      end
+
+      # Check if model belongs to other supported providers
+      def is_other_provider_model?(model)
+        return false unless model
+
+        other_provider_patterns = [
+          /mistral/i,           # Mistral models
+          /deepseek/i,          # DeepSeek models
+          /perplexity/i,        # Perplexity models
+          /llama.*ollama/i,     # Ollama models
+        ]
+
+        other_provider_patterns.any? { |pattern| model.match?(pattern) }
+      end
+
+      # Configure environment variables for other supported providers
+      def configure_other_provider_env(model, api_token)
+        case model.downcase
+        when /mistral/
+          ENV['MISTRAL_API_KEY'] = api_token
+          $stderr.puts "🔧 Set MISTRAL_API_KEY environment variable for Mistral model"
+        when /deepseek/
+          ENV['DEEPSEEK_API_KEY'] = api_token
+          $stderr.puts "🔧 Set DEEPSEEK_API_KEY environment variable for DeepSeek model"
+        when /perplexity/
+          ENV['PERPLEXITY_API_KEY'] = api_token
+          $stderr.puts "🔧 Set PERPLEXITY_API_KEY environment variable for Perplexity model"
+        when /ollama/
+          # Ollama typically doesn't need API key, but may need base URL
+          ENV['OLLAMA_API_BASE'] = api_token
+          $stderr.puts "🔧 Set OLLAMA_API_BASE environment variable for Ollama model"
+        else
+          # If we can't determine the provider, default to OpenAI
+          ENV['OPENAI_API_KEY'] = api_token
+          $stderr.puts "🔧 Set OPENAI_API_KEY environment variable (unknown provider fallback)"
+        end
       end
     end
   end

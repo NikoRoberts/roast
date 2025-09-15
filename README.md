@@ -725,8 +725,9 @@ analyze_data:
 
 #### API Provider Configuration
 
-Roast supports both OpenAI and OpenRouter as API providers. By default, Roast uses OpenAI, but you can specify OpenRouter:
+Roast supports multiple AI API providers. By default, Roast uses OpenAI, but you can specify alternative providers:
 
+**OpenRouter:**
 ```yaml
 name: My Workflow
 api_provider: openrouter
@@ -740,6 +741,81 @@ Benefits of using OpenRouter:
 - Consistent API interface across different model providers
 
 When using OpenRouter, specify fully qualified model names including the provider prefix (e.g., `anthropic/claude-3-opus-20240229`).
+
+**RubyLLM (Multi-Provider):**
+```yaml
+name: My Workflow
+api_provider: ruby_llm
+model: gpt-4o-mini  # or claude-3-5-sonnet, gemini-2.5-flash, etc.
+```
+
+Benefits of using RubyLLM:
+- Unified Ruby API for 500+ models from multiple providers
+- Automatic provider routing based on model name
+- Support for OpenAI, Anthropic, Google, and many other providers
+- Easy switching between models without changing configuration
+
+RubyLLM requires the `ruby_llm` gem to be installed separately:
+```bash
+gem install ruby_llm
+```
+
+Configure your API keys using environment variables (RubyLLM will use the appropriate key based on the model):
+```bash
+export OPENAI_API_KEY=your_key       # For OpenAI models (gpt-4, gpt-3.5-turbo)
+export ANTHROPIC_API_KEY=your_key    # For Anthropic models (claude-3-5-sonnet)
+export GEMINI_API_KEY=your_key       # For Google models (gemini-1.5-pro, gemini-1.5-flash)
+export MISTRAL_API_KEY=your_key      # For Mistral models
+export DEEPSEEK_API_KEY=your_key     # For DeepSeek models
+export PERPLEXITY_API_KEY=your_key   # For Perplexity models
+export RUBY_LLM_API_KEY=your_key     # Or use this as a fallback
+```
+
+**Google Gemini Configuration:**
+
+RubyLLM supports both direct Gemini API and Vertex AI:
+
+```yaml
+# Option 1: Direct Gemini API (simpler)
+name: Gemini Workflow
+api_provider: ruby_llm
+model: gemini-1.5-flash
+api_token: your_gemini_api_key
+
+# Option 2: Vertex AI (requires Google Cloud project)
+name: Vertex AI Workflow
+api_provider: ruby_llm
+model: gemini-1.5-pro
+api_token: your_gemini_api_key
+# Also set these environment variables:
+# export GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+# export GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+**AWS Bedrock Support:**
+
+For AWS Bedrock models, configure AWS credentials in the workflow:
+
+```yaml
+name: Bedrock Workflow
+api_provider: ruby_llm
+model: anthropic.claude-3-sonnet-20240229-v1:0  # Bedrock model ID
+api_token: us-east-1  # AWS region
+
+# Or with full AWS credentials:
+api_token: '{"region":"us-east-1","access_key":"AKIA...","secret_key":"..."}'
+
+# Or using AWS profile:
+api_token: production  # Uses ~/.aws/credentials profile
+```
+
+Supported Bedrock model prefixes:
+- `anthropic.*` - Claude models on Bedrock
+- `amazon.*` - Amazon Titan models
+- `ai21.*` - AI21 Jurassic models
+- `cohere.*` - Cohere Command models
+- `meta.*` - Meta Llama models
+- `mistral.*` - Mistral models
 
 #### Dynamic API Tokens and URIs
 

@@ -1,0 +1,29 @@
+name: RubyLLM Multi-Provider Workflow
+description: Demonstrates using RubyLLM as a provider with multiple backend LLM support
+
+# Use RubyLLM as the API provider
+api_provider: ruby_llm
+
+# RubyLLM supports multiple models from different providers
+model: gpt-4o-mini
+
+# Tools available to the workflow
+tools:
+  - Roast::Tools::ReadFile
+  - Roast::Tools::WriteFile
+
+steps:
+  - "Analyze the current Ruby project structure and identify areas for improvement."
+  - "Generate a comprehensive code review focusing on best practices and potential optimizations."
+  - summarize_findings: |
+      Summarize your findings in a clear, actionable report. Include:
+      - Key strengths of the codebase
+      - Areas needing improvement
+      - Specific recommendations with examples
+      - Priority levels for each recommendation
+  - "Write the summary to a file named 'code_review_summary.md'"
+
+# Step-specific configurations
+summarize_findings:
+  model: claude-3-5-sonnet-20241022
+  print_response: true

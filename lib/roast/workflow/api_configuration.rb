@@ -24,6 +24,12 @@ module Roast
         Roast::Factories::ApiProviderFactory.openai?(@api_provider)
       end
 
+      # Check if using RubyLLM
+      # @return [Boolean] true if using RubyLLM
+      def ruby_llm?
+        Roast::Factories::ApiProviderFactory.ruby_llm?(@api_provider)
+      end
+
       # Get the effective API token including environment variables
       # @return [String, nil] The API token
       def effective_token
@@ -59,6 +65,8 @@ module Roast
           ENV["OPENAI_API_KEY"]
         elsif openrouter?
           ENV["OPENROUTER_API_KEY"]
+        elsif ruby_llm?
+          ENV["RUBY_LLM_API_KEY"] || ENV["OPENAI_API_KEY"] || ENV["ANTHROPIC_API_KEY"]
         end
       end
     end
